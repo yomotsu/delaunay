@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>=^.^=</title>
+<style>
+body{
+  font-family: sans-serif;
+}
+.usage{}
+
+.setting{
+  margin-bottom: 20px;
+}
+.setting_bg{
+  font-size: 12px;
+}
+.setting_bg label{
+  cursor: pointer;
+}
+
+.editor{
+  position: relative;
+  display: block;
+  width: calc( 512px + 200px);
+  height: 512px;
+  background: url( 'bg.png' ) no-repeat;
+}
+.editor_input{
+  cursor: pointer;
+  position: absolute;
+  z-index: 2;
+  display: block;
+  width: 512px;
+  height: 512px;
+}
+.editor_view{
+  position: absolute;
+  z-index: 1;
+  display: block;
+  width: 512px;
+  height: 512px;
+}
+.editor_view #delaunay polygon{
+  fill: none;
+  stroke: #348174;
+  stroke-width: 2;
+  stroke-opacity: 0.5;
+  stroke-dasharray: 10,10;
+}
+
+.editor_view #volonoi polygon{
+  fill: none;
+  stroke: #751178;
+  stroke-width: 3;
+}
+
+.editor_input circle{
+  cursor: move;
+  stroke: rgba( 0, 0, 0, 0 );
+  stroke-width: 16;
+  fill:#263238;
+}
+.editor_input circle:hover{
+  fill:#263238;
+  stroke:#263238;
+}
+.editor_vertices{
+  color: #fff;
+  box-sizing: border-box;
+  width: 200px;
+  height: 100%;
+  padding: 10px;
+  overflow: auto;
+  margin: 0 0 0 auto;
+  background: #464646;
+}
+.editor_vertices{
+  text-align: right;
+}
+
+</style>
+</head>
+<body>
+
+<div class="usage">
+  <ol>
+    <li>click in the view area to add a point ( at least 4 times to make a polygon )</li>
+    <li>then drag a point to move</li>
+  </ol>
+</div>
+
+<div class="setting">
+  <div class="setting_bg"><label>background image (must be 512 * 512): <input class="setting_bgInput" type="file" accept="image/*"></label></div>
+  <div class="setting_reset"><label><button class="setting_resetButton">reset</button></label></div>
+</div>
+
+<div class="editor">
+  <div class="editor_view" width="512" height="512"></div>
+  <svg class="editor_input" width="512" height="512"></svg>
+  <div class="editor_vertices"></div>
+</div>
+
+<!-- <div id="placeholder"></div> -->
+
+<script src="../delaunay.js"></script>
+<script src="../lib/jquery-2.1.4.min.js"></script>
+<script src="../lib/snap.svg-min.js"></script>
+<script src="../lib/underscore-min.js"></script>
+<!-- <script src="../lib/backbone-min.js"></script> -->
+<script>
+'use strict';
+
+var vent = $( {} );
+var vertices = [];
+
+// ------------------------------
+// bg setting
+// ------------------------------
+{
+  let $editor = $( '.editor' );
+  let $input  = $( '.setting_bgInput' );
+
+  $input.on( 'change', function () {
+
+    var file = this.files[ 0 ];
+    var reader = new FileReader();
+
+    reader.onload = function( e ){
+
+      $editor.css( { background: 'url(' + reader.result + ')' } );
+
+    }
+
+    reader.readAsDataURL( file );
+
+  } );
+}
+
+// ------------------------------
+// vertices input
+// ------------------------------
+var circles = [];
+{
+  let $input  = Snap( '.editor_input' );
+
+  $input.click( function ( e ) {
+
+    if ( this.node === e.srcElement ) {
+
+      addCircle( e.offsetX, e.offsetY );
+
+    }
+
+  } );
+
+  function addCircle ( x, y ) {
+
+    var r = 4;
+    var centerX, centerY;
+    var $circle = $input.circle( x, y, r );
+    var vertex = new Vec2( x, y );
+
+    circles.push( $circle );
+    vertices.push( vertex );
+    vent.trigger( 'change:vertices' );
+
+    $circle.drag(
+
+      function ( dx, dy, x, y, e ) {
+
+        var x = centerX + dx;
+        var y = centerY + dy;
+        this.attr( { cx: x, cy: y } );
+        vertex.x = x;
+        vertex.y = y;
+        vent.trigger( 'change:vertices' );
+
+      },
+
+      function ( x, y, e ) {
+
+        centerX = e.offsetX;
+        centerY = e.offsetY;
+        this.attr( { opacity: 0.5 } );
+
+      },
+
+      function ( e ) {
+
+        this.attr( { opacity: 1 } );
+        vent.trigger( 'change:vertices' );
+
+      }
+
+    );
+
+  }
+}
+
+// ------------------------------
+// vertices input
+// ------------------------------
+var placeholder1 = document.querySelector( '.editor_view' );
+var placeholder2 = document.querySelector( '.editor_vertices' );
+var bbox = new BoundingRect(
+  new Vec2(   0,   0 ),
+  new Vec2( 512, 512 )
+);
+
+var template1 = _.template( [
+  '<svg width="<%= rect.w %>" height="<%= rect.h %>">',
+
+    // ドロネー三角形
+    '<g id="delaunay">',
+      '<% _.each( triangles, function ( tri ) { %>',
+        '<polygon points="<%= [ tri.a.x, tri.a.y, tri.b.x, tri.b.y, tri.c.x, tri.c.y ].join() %>" />',
+      '<% } ); %>',
+    '</g>',
+  
+    // ボロノイポリゴン
+    '<g id="volonoi">',
+      '<% _.each( polygons, function ( polygon, i ) { %>',
+        '<polygon points="<%= polygon.getPointsAsArray().join() %>" />',
+      '<% } ); %>',
+    '</g>',
+
+    // '<g id="core">',
+    //   '<% _.each( vertices, function ( vertex ) { %>',
+    //     '<circle cx="<%= vertex.x %>" cy="<%= vertex.y %>" r="2"/>',
+    //   '<% } ); %>',
+    '</g>',
+
+  '</svg>'
+].join( '' ) );
+
+
+var template2 = _.template( [
+  '<table>',
+    '<% _.each( vertices, function ( vertex ) { %>',
+      '<tr><td>(</td><td><%= vertex.x %>, </td><td><%= vertex.y %></td><td>)</td></tr>',
+    '<% } ); %>',
+  '</table>'
+].join( '' ) );
+
+
+function render () {
+
+  var delaunay = new DelaunayTriangles().triangulate( vertices, bbox );
+  var volonoiPolygons = delaunay.getVolonoiPolygons();
+
+  var data1 = {
+    rect: {
+      w: bbox.getWidth(),
+      h: bbox.getHeight()
+    },
+    c: {
+      x: bbox.circumCircle.center.x,
+      y: bbox.circumCircle.center.y,
+      r: bbox.circumCircle.r
+    },
+    t: {
+      polygon: [
+        bbox.outerTriangle.a.x,
+        bbox.outerTriangle.a.y,
+        bbox.outerTriangle.b.x,
+        bbox.outerTriangle.b.y,
+        bbox.outerTriangle.c.x,
+        bbox.outerTriangle.c.y
+      ].join()
+    },
+    polygons: volonoiPolygons,
+    triangles: delaunay.triangles,
+    vertices: delaunay.vertices
+  }
+
+  var data2 = {
+    vertices: delaunay.vertices
+  }
+
+  placeholder1.innerHTML = template1( data1 );
+  placeholder2.innerHTML = template2( data2 );
+
+}
+
+
+// ------------------------------
+// reset
+// ------------------------------
+{
+  let $resetButton = $( '.setting_resetButton' );
+  $resetButton.on( 'click', function () {
+
+    circles.forEach( function ( $circle ) {
+
+      $circle.undrag();
+      $circle.remove();
+
+    } );
+
+    vertices.length = 0;
+    circles.length = 0;
+    vent.trigger( 'change:vertices' );
+
+  } );
+}
+
+// ------------------------------
+// 
+// ------------------------------
+vent.on( 'change:vertices', render );
+
+</script>
+
+</body>
+</html>

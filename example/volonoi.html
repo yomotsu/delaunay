@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>=^.^=</title>
+</head>
+<body>
+
+<div id="placeholder"></div>
+
+<script src="../delaunay.js"></script>
+<script src="../lib/underscore-min.js"></script>
+<script>
+
+var width = height = 512;
+var vertices = [];
+
+for ( var i = 0; i < 100; i ++ ) {
+
+  vertices.push( new Vec2( Math.random() * width, Math.random() * height ) );
+
+}
+
+var bbox = new BoundingRect(
+  new Vec2(     0,      0 ),
+  new Vec2( width, height )
+);
+
+var delaunay = new DelaunayTriangles().triangulate( vertices, bbox );
+var volonoiPolygons = delaunay.getVolonoiPolygons();
+
+var template = _.template( [
+  '<svg width="<%= rect.w * 2 %>" height="<%= rect.h * 2 %>" viewBox="-<%= rect.w * 0.5 %> -<%= rect.h * 0.5 %> <%= rect.w * 2 %> <%= rect.h * 2 %>">',
+    '<rect width="<%= rect.w %>" height="<%= rect.h %>" stroke-width="0" fill="#F8BBD0" />',
+    '<circle cx="<%= c.x %>" cy="<%= c.y %>", r="<%= c.r %>" fill="none" stroke="#ccc" stroke-width="1" />',
+    '<polygon points="<%= t.polygon %>" fill="none" stroke="#ccc" stroke-width="1" />',
+
+    // ドロネー三角形
+    '<% _.each( triangles, function ( tri ) { %>',
+      '<polygon points="<%= [ tri.a.x, tri.a.y, tri.b.x, tri.b.y, tri.c.x, tri.c.y ].join() %>" fill="none" stroke="#fff" stroke-width="0.5" />',
+    '<% } ); %>',
+  
+    // ボロノイポリゴン
+    '<% _.each( polygons, function ( polygon, i ) { %>',
+      '<polygon points="<%= polygon.getPointsAsArray().join() %>" fill="none" stroke="#8E24AA" stroke-width="0.5" />',
+    '<% } ); %>',
+
+    '<% _.each( vertices, function ( vertex ) { %>',
+      '<circle cx="<%= vertex.x %>" cy="<%= vertex.y %>" r="2" fill="#6A1B9A"/>',
+    '<% } ); %>',
+  '</svg>'
+].join( '' ) );
+
+var data = {
+  rect: {
+    w: bbox.getWidth(),
+    h: bbox.getHeight()
+  },
+  c: {
+    x: bbox.circumCircle.center.x,
+    y: bbox.circumCircle.center.y,
+    r: bbox.circumCircle.r
+  },
+  t: {
+    polygon: [
+      bbox.outerTriangle.a.x,
+      bbox.outerTriangle.a.y,
+      bbox.outerTriangle.b.x,
+      bbox.outerTriangle.b.y,
+      bbox.outerTriangle.c.x,
+      bbox.outerTriangle.c.y
+    ].join()
+  },
+  polygons: volonoiPolygons,
+  triangles: delaunay.triangles,
+  vertices: delaunay.vertices
+}
+
+placeholder.innerHTML = template( data );
+
+</script>
+
+</body>
+</html>
