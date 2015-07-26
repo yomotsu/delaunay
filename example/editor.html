@@ -10,10 +10,10 @@ body{
 .usage{}
 
 .setting{
+  font-size: 12px;
   margin-bottom: 20px;
 }
 .setting_bg{
-  font-size: 12px;
 }
 .setting_bg label{
   cursor: pointer;
@@ -26,7 +26,7 @@ body{
   height: 512px;
   background: url( 'bg.png' ) no-repeat;
 }
-.editor_input{
+.editor_controls{
   cursor: pointer;
   position: absolute;
   z-index: 2;
@@ -41,27 +41,14 @@ body{
   width: 512px;
   height: 512px;
 }
-.editor_view #delaunay polygon{
-  fill: none;
-  stroke: #348174;
-  stroke-width: 2;
-  stroke-opacity: 0.5;
-  stroke-dasharray: 10,10;
-}
 
-.editor_view #volonoi polygon{
-  fill: none;
-  stroke: #751178;
-  stroke-width: 3;
-}
-
-.editor_input circle{
+.editor_controls circle{
   cursor: move;
   stroke: rgba( 0, 0, 0, 0 );
   stroke-width: 16;
   fill:#263238;
 }
-.editor_input circle:hover{
+.editor_controls circle:hover{
   fill:#263238;
   stroke:#263238;
 }
@@ -91,13 +78,14 @@ body{
 </div>
 
 <div class="setting">
-  <div class="setting_bg"><label>background image (must be 512 * 512): <input class="setting_bgInput" type="file" accept="image/*"></label></div>
+  <div class="setting_bg"><label>background image (must be 512 * 512): <input class="setting_setBG" type="file" accept="image/*"></label></div>
   <div class="setting_reset"><label><button class="setting_resetButton">reset</button></label></div>
+  <div class="setting_getSVG"><a class="setting_getSVGButton" href="#" download>download as a SVG file</a></div>
 </div>
 
 <div class="editor">
   <div class="editor_view" width="512" height="512"></div>
-  <svg class="editor_input" width="512" height="512"></svg>
+  <svg class="editor_controls" width="512" height="512"></svg>
   <div class="editor_vertices"></div>
 </div>
 
@@ -119,9 +107,9 @@ var vertices = [];
 // ------------------------------
 {
   let $editor = $( '.editor' );
-  let $input  = $( '.setting_bgInput' );
+  let $setBG  = $( '.setting_setBG' );
 
-  $input.on( 'change', function () {
+  $setBG.on( 'change', function () {
 
     var file = this.files[ 0 ];
     var reader = new FileReader();
@@ -142,7 +130,7 @@ var vertices = [];
 // ------------------------------
 var circles = [];
 {
-  let $input  = Snap( '.editor_input' );
+  let $input  = Snap( '.editor_controls' );
 
   $input.click( function ( e ) {
 
@@ -201,6 +189,7 @@ var circles = [];
 // ------------------------------
 // vertices input
 // ------------------------------
+var $getSVG = $( '.setting_getSVGButton' );
 var placeholder1 = document.querySelector( '.editor_view' );
 var placeholder2 = document.querySelector( '.editor_vertices' );
 var bbox = new BoundingRect(
@@ -209,26 +198,37 @@ var bbox = new BoundingRect(
 );
 
 var template1 = _.template( [
-  '<svg width="<%= rect.w %>" height="<%= rect.h %>">',
+  '<svg xmlns="http://www.w3.org/2000/svg" width="<%= rect.w %>" height="<%= rect.h %>">',
 
     // ドロネー三角形
     '<g id="delaunay">',
       '<% _.each( triangles, function ( tri ) { %>',
-        '<polygon points="<%= [ tri.a.x, tri.a.y, tri.b.x, tri.b.y, tri.c.x, tri.c.y ].join() %>" />',
+        '<polygon points="<%= [ tri.a.x, tri.a.y, tri.b.x, tri.b.y, tri.c.x, tri.c.y ].join() %>"',
+        ' fill="none"',
+        ' stroke="#348174"',
+        ' stroke-width="2"',
+        ' stroke-opacity="0.5"',
+        ' stroke-dasharray="10,10"',
+        '/>',
       '<% } ); %>',
     '</g>',
   
     // ボロノイポリゴン
     '<g id="volonoi">',
       '<% _.each( polygons, function ( polygon, i ) { %>',
-        '<polygon points="<%= polygon.getPointsAsArray().join() %>" />',
+        '<polygon points="<%= polygon.getPointsAsArray().join() %>"',
+        ' fill="none"',
+        ' stroke="#751178"',
+        ' stroke-width="3"',
+        '/>',
       '<% } ); %>',
     '</g>',
 
-    // '<g id="core">',
-    //   '<% _.each( vertices, function ( vertex ) { %>',
-    //     '<circle cx="<%= vertex.x %>" cy="<%= vertex.y %>" r="2"/>',
-    //   '<% } ); %>',
+    // 母点
+    '<g id="core">',
+      '<% _.each( vertices, function ( vertex ) { %>',
+        '<circle cx="<%= vertex.x %>" cy="<%= vertex.y %>" r="2"/>',
+      '<% } ); %>',
     '</g>',
 
   '</svg>'
@@ -278,8 +278,13 @@ function render () {
     vertices: delaunay.vertices
   }
 
-  placeholder1.innerHTML = template1( data1 );
-  placeholder2.innerHTML = template2( data2 );
+  var html1 = template1( data1 );
+  var html2 = template2( data2 );
+
+  placeholder1.innerHTML = html1;
+  placeholder2.innerHTML = html2;
+
+  $getSVG.attr( 'href', 'data:image/svg+xml,' + encodeURIComponent( html1 ) );
 
 }
 
