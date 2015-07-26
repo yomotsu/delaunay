@@ -597,9 +597,9 @@ class DelaunayTriangles {
 
         if ( t.hasPoint( vertex ) ) {
 
-          if ( !t.centroid ) { t.computeCentroid(); }
+          if ( !t.circumCircle ) { t.computeCircumCircle(); }
 
-          polygon.points.push( t.centroid );
+          polygon.points.push( t.circumCircle.center );
 
         }
 
